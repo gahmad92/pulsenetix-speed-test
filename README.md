@@ -30,6 +30,7 @@ Standard speed tests often use optimized routes that don't reflect real-world us
 2.  Run `npm install` to install dependencies (Electron).
 3.  Launch with `npm start`.
 4.  Build for Windows with `npm run dist`.
+5.  NOTE IT WILL TAKE 5 MINUTES BEFORE FULLY GIVEING THE ACTUAL RESULTS 
 
 ---
 *Created by Ghulam Haider (Ahmad) Productions*
