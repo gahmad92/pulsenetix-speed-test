@@ -1,0 +1,33 @@
+{
+    "name":  "pulsenetix",
+    "version":  "1.0.0",
+    "description":  "PulseNetix Internet Speed Test",
+    "main":  "main.js",
+    "scripts":  {
+                    "start":  "electron .",
+                    "dist":  "electron-builder",
+                    "pack":  "electron-builder --dir"
+                },
+    "devDependencies":  {
+                            "electron":  "^28.3.3",
+                            "electron-builder":  "^24.13.3"
+                        },
+    "author":  "Ghulam Haider",
+    "build":  {
+                  "appId":  "com.gh.pulsenetix",
+                  "productName":  "PulseNetix",
+                  "copyright":  "Copyright © 2026 Ghulam Haider",
+                  "win":  {
+                              "target":  [
+                                             "nsis",
+                                             "portable"
+                                         ],
+                              "icon":  "logo-256.png"
+                          },
+                  "nsis":  {
+                               "oneClick":  false,
+                               "allowToChangeInstallationDirectory":  true
+                           },
+                  "icon":  "logo-256.png"
+              }
+}

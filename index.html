@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>NetPulse — Speed Test</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+:root {
+  --bg:#f4f7fb; --s1:#ffffff; --s2:#f1f5fa;
+  --border:rgba(10,40,60,0.12);
+  --accent:#0087c7; --green:#13a374; --red:#d6455d; --yellow:#c99800; --purple:#7b6bd9;
+  --text:#0f1a24; --muted:#5a6a78; --glow:rgba(0,135,199,0.25);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:'Manrope',sans-serif;overflow:hidden;user-select:none}
+
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,135,199,0.06) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,135,199,0.06) 1px,transparent 1px);
+  background-size:40px 40px;pointer-events:none;z-index:0}
+
+/* ── TITLEBAR ── */
+#titlebar{position:fixed;top:0;left:0;right:0;height:40px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 14px;background:rgba(244,247,251,0.97);
+  border-bottom:1px solid var(--border);-webkit-app-region:drag;z-index:200}
+.tb-left{display:flex;align-items:center;gap:10px}
+.tb-logo{font-size:12px;font-weight:800;letter-spacing:0.2em;color:var(--accent)}
+.tb-logo span{color:var(--muted);font-weight:400;font-size:10px}
+.tb-pill{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);background:var(--s1);
+  border:1px solid var(--border);padding:3px 8px;border-radius:20px;letter-spacing:0.05em}
+.tb-pill b{color:var(--green)}
+.tb-live{display:flex;align-items:center;gap:12px}
+.tb-stat{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.tb-stat .arrow{font-size:10px}
+.tb-stat .v{color:var(--text);font-weight:700;min-width:55px}
+.tb-stat .v.rx{color:var(--accent)}
+.tb-stat .v.tx{color:var(--green)}
+.win-controls{display:flex;gap:5px;-webkit-app-region:no-drag}
+.wbtn{width:26px;height:26px;border-radius:5px;border:1px solid var(--border);background:var(--s1);
+  cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .15s}
+.wbtn:hover{background:var(--s2);color:var(--text)}
+.wbtn.x:hover{background:var(--red);border-color:var(--red);color:#fff}
+
+/* ── MAIN LAYOUT ── */
+#app{position:relative;z-index:1;padding:48px 14px 10px;height:100vh;
+  display:grid;grid-template-rows:auto auto 1fr auto auto;gap:8px;overflow:hidden}
+
+/* ── TOP ROW ── */
+.top-row{display:flex;align-items:center;gap:10px}
+.app-title{font-size:18px;font-weight:800;letter-spacing:-0.02em;flex-shrink:0}
+.app-title em{color:var(--accent);font-style:normal}
+.srv-area{display:flex;align-items:center;gap:6px;flex:1}
+.srv-badge{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);
+  background:var(--s1);border:1px solid var(--border);padding:3px 10px;border-radius:20px;white-space:nowrap}
+.srv-badge b{color:var(--green)}
+.srv-select{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text);
+  background:var(--s1);border:1px solid var(--border);padding:4px 8px;border-radius:8px;outline:none;cursor:pointer;flex:1;max-width:260px}
+.srv-select option{background:var(--s1);color:var(--text)}
+.start-btn{
+  height:36px;padding:0 20px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent) 0%,#007fa3 100%);
+  border:none;border-radius:10px;color:#050a0e;font-family:'Syne',sans-serif;
+  font-size:12px;font-weight:800;letter-spacing:0.1em;cursor:pointer;text-transform:uppercase;
+  transition:all .2s;box-shadow:0 0 20px rgba(0,210,255,0.2);position:relative;overflow:hidden}
+.start-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.2) 0%,transparent 55%);pointer-events:none}
+.start-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 25px rgba(0,210,255,0.4)}
+.start-btn:active:not(:disabled){transform:translateY(0)}
+.start-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.start-btn .btn-icon{width:14px;height:14px;display:inline-block;vertical-align:-2px;margin-right:6px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── MID ROW ── */
+.mid-row{display:grid;grid-template-columns:230px 1fr;gap:8px;min-height:0}
+
+/* ── GAUGE ── */
+.gauge-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;
+  padding:14px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  position:relative;overflow:hidden}
+.gauge-card::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% -5%,rgba(0,210,255,0.09) 0%,transparent 65%);pointer-events:none}
+.g-label{font-size:10px;font-weight:700;letter-spacing:0.2em;color:var(--muted);text-transform:uppercase}
+.g-val-wrap{text-align:center;margin-top:-6px}
+.g-val{font-family:'JetBrains Mono',monospace;font-size:44px;font-weight:700;line-height:1;
+  color:var(--accent);text-shadow:0 0 20px var(--glow);transition:color .3s}
+.g-unit{font-size:12px;color:var(--muted);letter-spacing:0.12em;margin-top:2px}
+.g-phase{font-size:11px;color:var(--accent);letter-spacing:0.18em;font-weight:700;min-height:13px;margin-top:2px}
+.g-instant{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);margin-top:1px}
+.g-instant b{color:var(--yellow)}
+
+/* ── STATS GRID ── */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;
+  padding:12px 14px;display:flex;flex-direction:column;gap:5px;transition:border-color .3s}
+.stat-card.active{border-color:rgba(0,210,255,0.4)}
+.stat-card.done{border-color:rgba(0,255,157,0.25)}
+.sc-header{display:flex;align-items:center;justify-content:space-between}
+.sc-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.sc-icon.dl  {background:rgba(0,210,255,0.12)}
+.sc-icon.ul  {background:rgba(0,255,157,0.12)}
+.sc-icon.ping{background:rgba(255,77,109,0.12)}
+.sc-icon.net {background:rgba(255,214,10,0.12)}
+.sc-name{font-size:12px;color:var(--muted);letter-spacing:0.15em;font-weight:700;text-transform:uppercase}
+.sc-val{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--text);line-height:1;white-space:nowrap}
+.sc-val .u{font-size:11px;color:var(--muted);font-weight:400;margin-left:2px}
+.sc-bar-wrap{height:2px;background:rgba(255,255,255,0.04);border-radius:1px;overflow:hidden}
+.sc-bar{height:100%;border-radius:1px;width:0%;transition:width .35s ease}
+.sc-bar.dl{background:var(--accent)} .sc-bar.ul{background:var(--green)}
+.sc-bar.ping{background:var(--red)}  .sc-bar.net{background:var(--yellow)}
+.sc-subs{display:grid;grid-template-columns:1fr 1fr;gap:2px 6px;margin-top:1px}
+.sc-sub{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+.sc-sub b{color:var(--text)}
+.sc-sub.ok b{color:var(--green)} .sc-sub.warn b{color:var(--yellow)} .sc-sub.bad b{color:var(--red)}
+
+/* Emphasize download card readability */
+#card-dl .sc-name{font-size:13px}
+#card-dl .sc-val{font-size:30px}
+#card-dl .sc-val .u{font-size:12px}
+#card-dl .sc-sub{font-size:11px}
+
+/* ── BOTTOM 3-COL PANEL ── */
+.bottom-panel{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;min-height:0}
+
+/* shared panel card */
+.panel-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:8px 12px;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+.panel-title{font-size:10px;letter-spacing:0.18em;color:var(--muted);text-transform:uppercase;font-weight:700;
+  display:flex;align-items:center;gap:5px;flex-shrink:0}
+.panel-title .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 5px var(--accent);animation:blink 1.2s ease-in-out infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Packet table */
+.pkt-rows{display:flex;flex-direction:column;gap:3px;flex:1}
+.pkt-row{display:grid;grid-template-columns:80px 1fr 65px 55px;align-items:center;
+  font-family:'JetBrains Mono',monospace;font-size:10px;gap:5px}
+.pkt-row.hdr{color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;margin-bottom:1px}
+.pkt-row .lbl{color:var(--muted)}
+.pkt-row .val{color:var(--text);font-weight:700}
+.pkt-row .val.up{color:var(--accent)} .pkt-row .val.dn{color:var(--green)} .pkt-row .val.er{color:var(--red)}
+.mini-bar-wrap{height:3px;background:rgba(255,255,255,0.04);border-radius:2px;overflow:hidden}
+.mini-bar{height:100%;border-radius:2px;transition:width .3s ease}
+
+/* Live net monitor */
+.net-mon{flex:1;display:flex;flex-direction:column;gap:4px}
+.nm-row{display:flex;align-items:center;justify-content:space-between;
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+  border-bottom:1px solid rgba(255,255,255,0.03);padding-bottom:3px}
+.nm-row:last-child{border-bottom:none;padding-bottom:0}
+.nm-row .nm-lbl{display:flex;align-items:center;gap:4px}
+.nm-row .nm-val{font-weight:700;text-align:right}
+.nm-row .nm-val.rx{color:var(--accent)} .nm-row .nm-val.tx{color:var(--green)}
+.nm-row .nm-val.ip{color:var(--yellow)} .nm-row .nm-val.norm{color:var(--text)}
+
+/* Sparklines */
+.sparks{display:flex;flex-direction:column;gap:5px;flex:1}
+.spark-row{flex:1;display:flex;flex-direction:column;gap:1px}
+.spark-label{font-size:9px;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;font-weight:700}
+.sparkline{width:100%;flex:1;min-height:18px}
+
+/* STATUS BAR */
+.status-bar{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+  letter-spacing:0.05em;text-align:center;padding:1px 0;flex-shrink:0}
+.status-bar .hl{color:var(--accent)} .status-bar .ok{color:var(--green)} .status-bar .er{color:var(--red)}
+
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TITLEBAR with live RX/TX always visible -->
+<div id="titlebar">
+  <div class="tb-left">
+    <div class="tb-logo">◈ PulseNetix<span>  Ghulam Haider (Ahmad) Productions</span></div>
+    <div class="tb-pill" id="iface-badge">detecting...</div>
+    <div class="tb-live">
+      <div class="tb-stat"><span class="arrow" style="color:var(--accent)">↓</span><span class="v rx" id="tb-rx">0 B/s</span></div>
+      <div class="tb-stat"><span class="arrow" style="color:var(--green)">↑</span><span class="v tx" id="tb-tx">0 B/s</span></div>
+      <div class="tb-stat"><span style="color:var(--muted);font-size:8px">PKT/s</span><span class="v norm" id="tb-pkt">0</span></div>
+      <div class="tb-stat"><span style="color:var(--muted);font-size:8px">SRV IP</span><span class="v" id="tb-srvip" style="color:var(--yellow)">—</span></div>
+    </div>
+  </div>
+  <div class="win-controls">
+    <div class="wbtn" id="btn-min">─</div>
+    <div class="wbtn" id="btn-max">□</div>
+    <div class="wbtn x" id="btn-close">✕</div>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- TOP ROW -->
+  <div class="top-row">
+    <div class="app-title">Internet <em>Speed Test</em></div>
+    <div class="srv-area">
+      <div class="srv-badge">Server: <b id="srv-label">Tele2 Sweden</b> · <span id="srv-region">Europe</span></div>
+      <select id="server-select" class="srv-select"></select>
+    </div>
+    <button class="start-btn" id="start-btn" style="color: white;">
+      <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <polygon points="9,7 18,12 9,17"></polygon>
+      </svg>
+      START TEST
+    </button>
+  </div>
+
+  <!-- MID: gauge + cards -->
+  <div class="mid-row">
+    <div class="gauge-card">
+      <div class="g-label">Live Throughput</div>
+      <svg id="gauge-svg" width="190" height="108" viewBox="0 0 190 108">
+        <path d="M 12 103 A 83 83 0 0 1 178 103" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="9" stroke-linecap="round"/>
+        <path id="gauge-fill" d="M 12 103 A 83 83 0 0 1 178 103"
+          fill="none" stroke="#00d2ff" stroke-width="9" stroke-linecap="round"
+          stroke-dasharray="261" stroke-dashoffset="261"
+          style="transition:stroke-dashoffset .35s ease,stroke .35s ease;filter:drop-shadow(0 0 6px rgba(0,210,255,0.8))"/>
+        <circle id="gauge-dot" cx="95" cy="103" r="4" fill="#00d2ff"
+          style="filter:drop-shadow(0 0 5px #00d2ff);transition:all .35s ease"/>
+      </svg>
+      <div class="g-val-wrap">
+        <div class="g-val" id="live-speed">0.00</div>
+        <div class="g-unit">Mbps</div>
+      </div>
+      <div class="g-phase" id="phase-label">READY</div>
+      <div class="g-instant">Instant: <b id="instant-val">0.00</b> Mbps</div>
+    </div>
+
+    <div class="stats-grid">
+      <!-- Ping -->
+      <div class="stat-card" id="card-ping">
+        <div class="sc-header">
+          <div class="sc-icon ping">◎</div>
+          <div style="text-align:right">
+            <div class="sc-name">Ping / Latency</div>
+            <div class="sc-val" id="val-ping">—<span class="u">ms</span></div>
+          </div>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar ping" id="bar-ping"></div></div>
+        <div class="sc-subs">
+          <div class="sc-sub">Min: <b id="ping-min">—</b>ms</div>
+          <div class="sc-sub">Max: <b id="ping-max">—</b>ms</div>
+          <div class="sc-sub">Jitter: <b id="ping-jitter">—</b>ms</div>
+          <div class="sc-sub" id="ping-loss-wrap">Loss: <b id="ping-loss">—</b>%</div>
+        </div>
+      </div>
+      <!-- Download -->
+      <div class="stat-card" id="card-dl">
+        <div class="sc-header">
+          <div class="sc-icon dl">↓</div>
+          <div style="text-align:right">
+            <div class="sc-name">Download</div>
+            <div class="sc-val" id="val-dl">—<span class="u">Mbps</span></div>
+          </div>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar dl" id="bar-dl"></div></div>
+        <div class="sc-subs">
+          <div class="sc-sub">Peak: <b id="dl-peak">—</b> Mbps</div>
+          <div class="sc-sub">Data: <b id="dl-mb">—</b> MB</div>
+          <div class="sc-sub">Packets: <b id="dl-pkts">—</b></div>
+          <div class="sc-sub">Threads: <b id="dl-threads">4</b></div>
+        </div>
+      </div>
+      <!-- Upload -->
+      <div class="stat-card" id="card-ul">
+        <div class="sc-header">
+          <div class="sc-icon ul">↑</div>
+          <div style="text-align:right">
+            <div class="sc-name">Upload</div>
+            <div class="sc-val" id="val-ul">—<span class="u">Mbps</span></div>
+          </div>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar ul" id="bar-ul"></div></div>
+        <div class="sc-subs">
+          <div class="sc-sub">Peak: <b id="ul-peak">—</b> Mbps</div>
+          <div class="sc-sub">Data: <b id="ul-mb">—</b> MB</div>
+          <div class="sc-sub">Packets: <b id="ul-pkts">—</b></div>
+          <div class="sc-sub">Errors: <b id="ul-errors">0</b></div>
+        </div>
+      </div>
+      <!-- Network Info -->
+      <div class="stat-card" id="card-net">
+        <div class="sc-header">
+          <div class="sc-icon net">◫</div>
+          <div style="text-align:right">
+            <div class="sc-name">Network Info</div>
+            <div class="sc-val" style="font-size:13px" id="val-ip">—</div>
+          </div>
+        </div>
+        <div class="sc-bar-wrap"><div class="sc-bar net" id="bar-net" style="width:100%"></div></div>
+        <div class="sc-subs">
+          <div class="sc-sub">Iface: <b id="net-iface">—</b></div>
+          <div class="sc-sub">MAC: <b id="net-mac">—</b></div>
+          <div class="sc-sub">Srv IP: <b id="net-srvip" style="color:var(--yellow)">—</b></div>
+          <div class="sc-sub">Elapsed: <b id="net-duration">0</b>s</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM 3-COL -->
+  <div class="bottom-panel">
+
+    <!-- Packet monitor -->
+    <div class="panel-card">
+      <div class="panel-title"><span class="dot" style="background:var(--green);box-shadow:0 0 5px var(--green)"></span>Phase Packet Monitor</div>
+      <div class="pkt-rows">
+        <div class="pkt-row hdr"><span>Phase</span><span>Progress</span><span>Packets</span><span>Errors</span></div>
+        <div class="pkt-row">
+          <span class="lbl">● Ping</span>
+          <div class="mini-bar-wrap"><div class="mini-bar" id="pb-ping" style="background:var(--red);width:0%"></div></div>
+          <span class="val" id="pv-ping-pkts">—</span>
+          <span class="val er" id="pv-ping-err">—</span>
+        </div>
+        <div class="pkt-row">
+          <span class="lbl">↓ Download</span>
+          <div class="mini-bar-wrap"><div class="mini-bar" id="pb-dl" style="background:var(--accent);width:0%"></div></div>
+          <span class="val up" id="pv-dl-pkts">—</span>
+          <span class="val er" id="pv-dl-err">—</span>
+        </div>
+        <div class="pkt-row">
+          <span class="lbl">↑ Upload</span>
+          <div class="mini-bar-wrap"><div class="mini-bar" id="pb-ul" style="background:var(--green);width:0%"></div></div>
+          <span class="val dn" id="pv-ul-pkts">—</span>
+          <span class="val er" id="pv-ul-err">—</span>
+        </div>
+        <div class="pkt-row" style="border-top:1px solid var(--border);margin-top:2px;padding-top:3px">
+          <span class="lbl">Total RX</span>
+          <div class="mini-bar-wrap"><div class="mini-bar" id="pb-total" style="background:var(--yellow);width:0%"></div></div>
+          <span class="val" id="pv-total-bytes" style="color:var(--yellow)">0 B</span>
+          <span class="val" id="pv-total-pkts">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live system network monitor (always running) -->
+    <div class="panel-card">
+      <div class="panel-title"><span class="dot" style="background:var(--purple);box-shadow:0 0 5px var(--purple)"></span>Live System Network</div>
+      <div class="net-mon">
+        <div class="nm-row">
+          <div class="nm-lbl"><span style="color:var(--accent)">↓</span> RX Rate</div>
+          <div class="nm-val rx" id="nm-rx-rate">0 B/s</div>
+        </div>
+        <div class="nm-row">
+          <div class="nm-lbl"><span style="color:var(--green)">↑</span> TX Rate</div>
+          <div class="nm-val tx" id="nm-tx-rate">0 B/s</div>
+        </div>
+        <div class="nm-row">
+          <div class="nm-lbl">◈ Packets/s</div>
+          <div class="nm-val norm" id="nm-pkt-rate">0</div>
+        </div>
+        <div class="nm-row">
+          <div class="nm-lbl">↓ Total RX</div>
+          <div class="nm-val rx" id="nm-total-rx">—</div>
+        </div>
+        <div class="nm-row">
+          <div class="nm-lbl">↑ Total TX</div>
+          <div class="nm-val tx" id="nm-total-tx">—</div>
+        </div>
+        <div class="nm-row">
+          <div class="nm-lbl">◎ Server IP</div>
+          <div class="nm-val ip" id="nm-srv-ip">—</div>
+        </div>
+        <div class="nm-row">
+          <div class="nm-lbl">◫ Local IP</div>
+          <div class="nm-val norm" id="nm-local-ip">—</div>
+        </div>
+        <div class="nm-row">
+          <div class="nm-lbl">⬡ MAC Addr</div>
+          <div class="nm-val norm" id="nm-mac">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sparklines -->
+    <div class="panel-card">
+      <div class="panel-title"><span class="dot"></span>Throughput History</div>
+      <div class="sparks">
+        <div class="spark-row">
+          <div class="spark-label">↓ Download Mbps</div>
+          <svg class="sparkline" id="spark-dl" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="spark-row">
+          <div class="spark-label">↑ Upload Mbps</div>
+          <svg class="sparkline" id="spark-ul" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="spark-row">
+          <div class="spark-label">◎ Ping RTT ms</div>
+          <svg class="sparkline" id="spark-ping" preserveAspectRatio="none"></svg>
+        </div>
+        <div class="spark-row">
+          <div class="spark-label">⬡ System RX KB/s</div>
+          <svg class="sparkline" id="spark-sys" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="status-bar" id="status-bar">Ready · Live network monitor active · Select a server and click START TEST</div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+
+// Window controls
+document.getElementById('btn-min').onclick   = () => ipcRenderer.send('minimize');
+document.getElementById('btn-max').onclick   = () => ipcRenderer.send('maximize');
+document.getElementById('btn-close').onclick = () => ipcRenderer.send('close');
+
+// ── Helpers ────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmtBytes = (b) => {
+  if (b === 0) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+  return (b/1073741824).toFixed(2) + ' GB';
+};
+const fmtRate = (bps) => {
+  if (bps < 1024) return Math.round(bps) + ' B/s';
+  if (bps < 1048576) return (bps/1024).toFixed(1) + ' KB/s';
+  return (bps/1048576).toFixed(2) + ' MB/s';
+};
+const fmtNum = n => n >= 1000 ? (n/1000).toFixed(1)+'K' : String(Math.round(n));
+const setCard = (id, active, done) => {
+  $('card-'+id).classList.toggle('active', active);
+  $('card-'+id).classList.toggle('done', done);
+};
+const setBar = (id, pct) => { $('bar-'+id).style.width = Math.min(pct,100)+'%'; };
+const setMiniBar = (id, pct) => { $(id).style.width = Math.min(pct,100)+'%'; };
+
+// ── Server select ──────────────────────────────────────────
+const sel = $('server-select');
+let serversById = {};
+
+ipcRenderer.invoke('get-servers').then(list => {
+  list.forEach(s => {
+    serversById[s.id] = s;
+    const o = document.createElement('option');
+    o.value = s.id;
+    o.textContent = `${s.flag} ${s.name} · ${s.region}`;
+    sel.appendChild(o);
+  });
+  const def = list.find(s => s.isDefault) || list[0];
+  if (def) { sel.value = def.id; updateServerBadge(def); resolveServerIP(def.pingHost); }
+});
+
+function updateServerBadge(s) {
+  $('srv-label').textContent  = `${s.flag} ${s.name}`;
+  $('srv-region').textContent = s.region;
+}
+
+function resolveServerIP(host) {
+  ipcRenderer.invoke('resolve-ip', host).then(ip => {
+    $('tb-srvip').textContent   = ip;
+    $('nm-srv-ip').textContent  = ip;
+    $('net-srvip').textContent  = ip;
+  });
+}
+
+sel.onchange = () => {
+  const s = serversById[sel.value];
+  if (s) { updateServerBadge(s); resolveServerIP(s.pingHost); }
+};
+
+// ── Network interfaces ─────────────────────────────────────
+ipcRenderer.invoke('get-interfaces').then(ifaces => {
+  if (!ifaces.length) return;
+  const i = ifaces[0];
+  $('iface-badge').innerHTML  = `${i.name} · <b>${i.address}</b>`;
+  $('val-ip').textContent     = i.address;
+  $('net-iface').textContent  = i.name;
+  $('net-mac').textContent    = i.mac.toUpperCase();
+  $('nm-local-ip').textContent = i.address;
+  $('nm-mac').textContent     = i.mac.toUpperCase();
+});
+
+// ── Gauge ──────────────────────────────────────────────────
+const ARC = 261, MAX = 100;
+function setGauge(mbps, instant) {
+  const pct = Math.min(mbps / MAX, 1);
+  const hue = 185 - pct * 130;
+  const fill = $('gauge-fill');
+  fill.style.strokeDashoffset = ARC - pct * ARC;
+  fill.style.stroke = `hsl(${hue},100%,58%)`;
+  $('live-speed').textContent = mbps.toFixed(2);
+  $('live-speed').style.color = `hsl(${hue},100%,68%)`;
+  const ang = Math.PI + pct * Math.PI;
+  const dot = $('gauge-dot');
+  dot.setAttribute('cx', 95 + 83 * Math.cos(ang));
+  dot.setAttribute('cy', 103 + 83 * Math.sin(ang));
+  dot.style.fill = `hsl(${hue},100%,58%)`;
+  if (instant !== undefined) $('instant-val').textContent = parseFloat(instant).toFixed(2);
+}
+
+// ── Sparklines ─────────────────────────────────────────────
+const dlHist=[], ulHist=[], pingHist=[], sysHist=[];
+const MAX_PTS = 80;
+function drawSpark(id, data, color) {
+  const svg = $(id);
+  const W = svg.clientWidth || 200, H = svg.clientHeight || 20;
+  if (data.length < 2) return;
+  const max = Math.max(...data, 1);
+  const pts = data.map((v,i) => {
+    const x = (i / (MAX_PTS-1)) * W;
+    const y = H - (v/max)*(H-2);
+    return `${x},${y}`;
+  });
+  svg.innerHTML = `
+    <defs><linearGradient id="g${id}" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${color}" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="M0,${H} L${pts.join(' L')} L${W},${H} Z" fill="url(#g${id})"/>
+    <polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="1.5"
+      stroke-linejoin="round" stroke-linecap="round"/>`;
+}
+
+// ── Live system network monitor (always running) ───────────
+let sysMonInterval = null;
+function startSysMonitor() {
+  if (sysMonInterval) return;
+  sysMonInterval = setInterval(async () => {
+    try {
+      const s = await ipcRenderer.invoke('get-net-stats');
+      const rxR = fmtRate(s.rxRate), txR = fmtRate(s.txRate);
+      const pkts = Math.round(s.rxPktRate);
+      $('tb-rx').textContent       = rxR;
+      $('tb-tx').textContent       = txR;
+      $('tb-pkt').textContent      = pkts;
+      $('nm-rx-rate').textContent  = rxR;
+      $('nm-tx-rate').textContent  = txR;
+      $('nm-pkt-rate').textContent = pkts;
+      $('nm-total-rx').textContent = fmtBytes(s.rxBytes);
+      $('nm-total-tx').textContent = fmtBytes(s.txBytes);
+      sysHist.push(s.rxRate / 1024); // KB/s
+      if (sysHist.length > MAX_PTS) sysHist.shift();
+      drawSpark('spark-sys', sysHist, '#b06bff');
+    } catch(e) {}
+  }, 800);
+}
+startSysMonitor();
+
+// ── Main test ──────────────────────────────────────────────
+let running = false;
+
+$('start-btn').onclick = async () => {
+  if (running) return;
+  running = true;
+  const btn = $('start-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="8"></circle>
+    <path d="M12 7v5l3 2"></path>
+  </svg>TESTING...`;
+
+  const serverId = sel.value;
+  const server   = serversById[serverId];
+
+  // Reset
+  setGauge(0, 0);
+  ['ping','dl','ul'].forEach(id => { setCard(id,false,false); setBar(id,0); });
+  ['ping-min','ping-max','ping-jitter','ping-loss','dl-peak','dl-mb','dl-pkts',
+   'ul-peak','ul-mb','ul-pkts','ul-errors'].forEach(id => $(id).textContent = '—');
+  $('val-ping').innerHTML = '—<span class="u">ms</span>';
+  $('val-dl').innerHTML   = '—<span class="u">Mbps</span>';
+  $('val-ul').innerHTML   = '—<span class="u">Mbps</span>';
+  ['pv-ping-pkts','pv-ping-err','pv-dl-pkts','pv-dl-err','pv-ul-pkts','pv-ul-err'].forEach(id=>$(id).textContent='—');
+  ['pb-ping','pb-dl','pb-ul','pb-total'].forEach(id=>$(id).style.width='0%');
+  $('pv-total-bytes').textContent='0 B'; $('pv-total-pkts').textContent='0';
+  dlHist.length=0; ulHist.length=0; pingHist.length=0;
+
+  const testStart = Date.now();
+  const durTick = setInterval(() => { $('net-duration').textContent = Math.round((Date.now()-testStart)/1000); }, 500);
+
+  // 1. PING
+  $('phase-label').textContent = 'PING';
+  setCard('ping', true, false);
+  $('status-bar').innerHTML = `Probing <span class="hl">${server.flag} ${server.name}</span> · Sending 10 packets · measuring RTT, jitter, loss...`;
+
+  const ping = await ipcRenderer.invoke('ping-test', serverId);
+  $('val-ping').innerHTML      = `${ping.avg}<span class="u">ms</span>`;
+  $('ping-min').textContent    = ping.min;
+  $('ping-max').textContent    = ping.max;
+  $('ping-jitter').textContent = ping.jitter;
+  $('ping-loss').textContent   = ping.loss;
+  setBar('ping', Math.max(0, 100-(ping.avg/500)*100));
+  setMiniBar('pb-ping', 100);
+  $('pv-ping-pkts').textContent = `${ping.received}/${ping.sent}`;
+  $('pv-ping-err').textContent  = ping.sent - ping.received;
+  ping.results.filter(r=>r.rtt).forEach(r => { pingHist.push(r.rtt); });
+  drawSpark('spark-ping', pingHist, '#ff4d6d');
+  const lossEl = $('ping-loss-wrap');
+  lossEl.className = 'sc-sub ' + (ping.loss>10?'bad':ping.loss>2?'warn':'ok');
+  setCard('ping', false, true);
+  $('status-bar').innerHTML = `Ping done: <span class="hl">${ping.avg}ms avg</span> · Jitter <span class="hl">${ping.jitter}ms</span> · Loss <span class="${ping.loss>5?'er':'ok'}">${ping.loss}%</span> · Starting download...`;
+
+  // 2. DOWNLOAD
+  $('phase-label').textContent = 'DOWNLOAD';
+  setCard('dl', true, false);
+
+  ipcRenderer.on('download-progress', (_, d) => {
+    const mbps = parseFloat(d.mbps);
+    setGauge(mbps, d.instantMbps);
+    $('val-dl').innerHTML = `${d.mbps}<span class="u">Mbps</span>`;
+    setBar('dl', (mbps/MAX)*100);
+    $('dl-mb').textContent = d.mb; $('dl-pkts').textContent = fmtNum(d.packets);
+    $('dl-threads').textContent = d.activeThreads;
+    $('pv-dl-pkts').textContent = fmtNum(d.packets); $('pv-dl-err').textContent = d.errors;
+    setMiniBar('pb-dl', Math.min((parseFloat(d.mb)/100)*100, 99));
+    $('pv-total-bytes').textContent = fmtBytes(d.bytes);
+    $('pv-total-pkts').textContent  = fmtNum(d.packets);
+    setMiniBar('pb-total', Math.min((d.bytes/(100*1024*1024))*100, 99));
+    dlHist.push(parseFloat(d.instantMbps));
+    if (dlHist.length > MAX_PTS) dlHist.shift();
+    drawSpark('spark-dl', dlHist, '#00d2ff');
+    $('status-bar').innerHTML = `↓ <span class="hl">${d.mbps} Mbps</span> avg · Instant <span class="hl">${d.instantMbps} Mbps</span> · ${d.mb} MB · ${fmtNum(d.packets)} packets · ${d.elapsed}s`;
+  });
+
+  const dl = await ipcRenderer.invoke('download-test', serverId);
+  ipcRenderer.removeAllListeners('download-progress');
+  $('val-dl').innerHTML = `${dl.mbps}<span class="u">Mbps</span>`;
+  $('dl-peak').textContent = dl.peakMbps; $('dl-mb').textContent = dl.mb;
+  $('dl-pkts').textContent = fmtNum(dl.packets);
+  setBar('dl', (parseFloat(dl.mbps)/MAX)*100);
+  setMiniBar('pb-dl', 100);
+  setCard('dl', false, true); setGauge(0, 0);
+
+  // 3. UPLOAD
+  $('phase-label').textContent = 'UPLOAD';
+  setCard('ul', true, false);
+
+  ipcRenderer.on('upload-progress', (_, d) => {
+    const mbps = parseFloat(d.mbps);
+    setGauge(mbps, d.instantMbps);
+    $('val-ul').innerHTML = `${d.mbps}<span class="u">Mbps</span>`;
+    setBar('ul', (mbps/MAX)*100);
+    $('ul-mb').textContent = d.mb; $('ul-pkts').textContent = fmtNum(d.packets);
+    $('ul-errors').textContent = d.errors;
+    $('pv-ul-pkts').textContent = fmtNum(d.packets); $('pv-ul-err').textContent = d.errors;
+    setMiniBar('pb-ul', Math.min((parseFloat(d.mb)/15)*100, 99));
+    $('pv-total-bytes').textContent = fmtBytes(parseInt(dl.bytes||0) + parseInt(d.bytes||0));
+    $('pv-total-pkts').textContent  = fmtNum(parseInt(dl.packets||0) + d.packets);
+    ulHist.push(parseFloat(d.instantMbps));
+    if (ulHist.length > MAX_PTS) ulHist.shift();
+    drawSpark('spark-ul', ulHist, '#00ff9d');
+    $('status-bar').innerHTML = `↑ <span class="hl">${d.mbps} Mbps</span> avg · Instant <span class="hl">${d.instantMbps} Mbps</span> · ${d.mb} MB · ${fmtNum(d.packets)} packets · ${d.elapsed}s`;
+  });
+
+  const ul = await ipcRenderer.invoke('upload-test', serverId);
+  ipcRenderer.removeAllListeners('upload-progress');
+  $('val-ul').innerHTML = `${ul.mbps}<span class="u">Mbps</span>`;
+  $('ul-peak').textContent = ul.peakMbps; $('ul-mb').textContent = ul.mb;
+  $('ul-pkts').textContent = fmtNum(ul.packets); $('ul-errors').textContent = ul.errors;
+  setBar('ul', (parseFloat(ul.mbps)/MAX)*100);
+  setMiniBar('pb-ul', 100);
+  setCard('ul', false, true); setGauge(0, 0);
+
+  // DONE
+  clearInterval(durTick);
+  $('phase-label').textContent = 'COMPLETE ✓';
+  $('status-bar').innerHTML =
+    `✓ <span class="ok">Done</span> · Ping <span class="hl">${ping.avg}ms</span> · ` +
+    `↓ <span class="hl">${dl.mbps} Mbps</span> (peak ${dl.peakMbps}) · ` +
+    `↑ <span class="hl">${ul.mbps} Mbps</span> (peak ${ul.peakMbps}) · ` +
+    `Total packets <span class="ok">${fmtNum(parseInt(dl.packets||0)+parseInt(ul.packets||0))}</span>`;
+
+  btn.disabled = false; btn.innerHTML = 'RUN AGAIN';
+  running = false;
+};
+</script>
+</body>
+</html>
